@@ -29,6 +29,12 @@
         .row {
             display:flex;
         }
+        .light-bg {
+            color:#000;
+        }
+        .dark-bg {
+            color: #FFF;
+        }
     </style>
 </head>
 <body>
@@ -44,9 +50,56 @@
     <div id="div-container">
     </div>
     <button id="enable-disable">Set</button>
+    <div>
+        <h2>Color Setter</h2>
+        <label>Letter</label><input id="pallete-letter"><br>
+        <label>Color</label><input id="color"><br>
+        <span id="color-preview"></span> <button id="add-color">Set</button>
+        <button id="clear-all">Clear All</button>
+        <button id="save-pallete">Save Pallete</button>
+        <button id="load-pallete">load Pallete</button>
+        <div id="pallete">
+        </div>
+    </div>
     <script>
-        const $ = (selector) => document.querySelector(selector)
-        const $a = (selector) => Array.from(document.querySelectorAll(selector));
+        const pallete = localStorage.getItem("pallete") ? JSON.parse(localStorage.getItem("pallete")) : {
+            A:"#4BACDC", // Water
+            B:"#67AD83", // Grass
+            C: "#E4D4BC" // Sand
+        };
+        function addPalleteColor(){
+            const letter = $("#pallete-letter").value;
+            const color = $("#color").value;
+            pallete[letter] = color;
+            updateColor();
+        }
+        $("#add-color").addEventListener("click", addPalleteColor)
+        function savePallete(){
+            localStorage.setItem("pallete", JSON.stringify(pallete));
+        }
+        $("#save-pallete").addEventListener("click", savePallete);
+        function loadPallete(){
+            const _pallete = localStorage.getItem("pallete");
+            clearPallete();
+            for(const key in _pallete){
+                pallete[key] = _pallete[key];
+            }
+        }
+        $("#load-pallete").addEventListener("click", loadPallete);
+        const calculateLuminosity = (hex) => {
+            if(hex[0] === "#"){
+                hex = hex.slice(1);
+            }
+            const channelSize = hex.length/3;
+            const radix = 16;
+            const percentage = (16 ** channelSize) - 1;
+            const R = parseInt(hex.slice(0,channelSize), 16)/(percentage);
+            const G = parseInt(hex.slice(channelSize,channelSize * 2), 16)/(percentage);
+            const B = parseInt(hex.slice(channelSize * 2,channelSize * 3), 16)/(percentage);
+            return (0.21 * R) + (0.72 * G) + (0.07 * B) 
+        }
+        function $(selector){ return document.querySelector(selector)}
+        function $a(selector){ return Array.from(document.querySelectorAll(selector)); }
         const $make = (elem) => document.createElement(elem)
         const strRepeat = (str, times) => new Array(times).fill(str).join("");
         const state = {
@@ -73,12 +126,12 @@
             
         }
         let mouseDown = 0;
-        document.body.onmousedown = function() { 
-            ++mouseDown;
-        }
-        document.body.onmouseup = function() {
-            --mouseDown;
-        }
+        document.body.addEventListener("mousedown", function() { 
+            mouseDown = true;
+        });
+        document.body.addEventListener("mouseup",function() {
+            mouseDown = false;
+        });
         let enabled = true;
         const enableEditing = () => {
             $a(".cell").forEach(cell => {
@@ -88,7 +141,6 @@
         };
         const disableEditing = () => {
             $a(".cell").forEach(cell => {
-                console.log(cell);
                 cell.contentEditable='false';
                 cell.style.userSelect = 'none';
             })
@@ -96,13 +148,12 @@
         function updateTextBoxFromDivs(){
             const rowStrs = [];
             const rows = $a(".row").map(row => {
-                console.log(row);
                 rowStrs.push(Array.from(row.querySelectorAll(".cell")).map(c => {
-                    console.log(c);
                     return c.textContent || c.value}).join("")
                 );
             })
             $("#text-setter").value= rowStrs.join("\n");
+            updateColor();
         }
         const container = $("#div-container");
         container.addEventListener("input", function(event){
@@ -117,7 +168,6 @@
                 return;
             }
             if(!enabled){
-                console.log(event.target);
                 event.target.textContent = $("#letter").value;
                 updateTextBoxFromDivs();
             }
@@ -126,8 +176,7 @@
             if(!event.target.matches(".cell")){
                 return;
             }
-            if(mouseDown > 0 && !enabled){
-                console.log(event.target);
+            if(mouseDown && !enabled){
                 event.target.textContent = $("#letter").value;
                 updateTextBoxFromDivs();
             }
@@ -158,56 +207,62 @@
             }
             
         })
-        const drawLetterSquare = (ctx, letter, x,y,size) => {
-            ctx.strokeRect(x, y, size, size);
-            ctx.font = '16 monospace';
-            ctx.textAlign = "center" 
-            ctx.textBaseline = "middle"
-            ctx.strokeText(letter,x + size/2, y + size/2, 16)
+        // const drawLetterSquare = (ctx, letter, x,y,size) => {
+        //     ctx.strokeRect(x, y, size, size);
+        //     ctx.font = '16 monospace';
+        //     ctx.textAlign = "center" 
+        //     ctx.textBaseline = "middle"
+        //     ctx.strokeText(letter,x + size/2, y + size/2, 16)
+        // }
+        const updateColor = () => {
+            $a(".cell").forEach(cell => {
+                const letter = cell.textContent;
+                const color = pallete[letter] || "#FFF";
+                cell.style.background = color;
+                cell.classList.remove('light-bg');
+                cell.classList.remove('dark-bg');
+                if(calculateLuminosity(color) > 0.5){
+                    cell.classList.add('light-bg')
+                } else {
+                    cell.classList.add('dark-bg')
+                }
+
+            })
+            renderPallete();
         }
-        // const canvas = $("canvas");
-        // const ctx = canvas.getContext("2d");
+        updateColor();
+        function renderPallete(){
+            const palleteEl = $("#pallete");
+            palleteEl.innerHTML = "";
+            for(const key in pallete){
+                const value = pallete[key];
+                const square = $make("div");
+                square.style.display="inline-block";
+                square.style.width="16px";
+                square.style.height="16px";
+                square.textContent = key;
+                square.style.background = value;
+                if(calculateLuminosity(value) > 0.5){
+                    square.style.color = "#000"
+                } else {
+                    square.style.color = "#FFF";
+                }
+                palleteEl.appendChild(square);
+            }
+        }
 
-        // function renderTextToCanvas(text, size){
-        //     const rows = text.split("\n");
-        //     for(let y = 0; y < rows.length; y++){
-        //         const row = rows[y]
-        //         for(let x = 0; x < row.length; x++){
-        //             const letter = row[x];
-        //             drawLetterSquare(ctx, letter, x * size, y * size, size)
-        //         }
-        //     }
-        // }
-        // function getRelativeMouse(e){
-        //     var rect = e.target.getBoundingClientRect();
-        //     var x = e.clientX - rect.left; //x position within the element.
-        //     var y = e.clientY - rect.top;  //y position within the element.
-        //     return {x, y}
-        // }
-
-        // function floorInterval(number, size){
-        //     return Math.floor(number/size) * size;
-        // }
-        // renderTextToCanvas(startingMap, 16)
-        // let mouseDown = 0;
-        // document.body.onmousedown = function() { 
-        // ++mouseDown;
-        // }
-        // document.body.onmouseup = function() {
-        // --mouseDown;
-        // }
-        // canvas.onmousemove = (event) => {
-        //     const mouse = getRelativeMouse(event);
-        //     const x = floorInterval(mouse.x, 16);
-        //     const y = floorInterval(mouse.y, 16);
-        //     console.log(x,y);
-        //     if(mouseDown){
-        //         console.log("dragging");
-        //     }
-        // }
-
-
-
+        function clearPallete(){
+            for(const key in pallete){
+                delete pallete[key];
+            }
+            updateColor();
+        }
+        $("#clear-all").addEventListener("click", clearPallete);
+        $("#pallete").addEventListener("click", function(event){
+            if(event.target.matches("div")){
+                $("#letter").value = event.target.textContent;
+            }
+        })
 
     </script>
 </body>
