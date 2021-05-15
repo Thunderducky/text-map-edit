@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text Map Edit</title>
+    <style>
+        * {
+            font-family:monospace;
+        }
+        canvas {
+            background:#CCC
+        }
+        .cell {
+            text-align:center;
+            width:16px;
+            height:16px;
+            border:1px #555 solid;
+            cursor:crosshair
+        }
+        .cell:hover {
+            text-align:center;
+            width:16px;
+            height:16px;
+            background: #FDD;
+            border:1px red solid;
+        }
+        .row {
+            display:flex;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="text-holder">
+        <span>Width</span><input id="board-width" disabled="true" value="8"><br>
+        <span>Height</span><input id="board-height" disabled="true" value="8"><br>
+        <span>Brush</span><input id="letter" value="B">
+        <form id="text-form">
+            <textarea id="text-setter" style="height:150px"></textarea>
+        </form>
+    </div>
+    <div id="div-container">
+    </div>
+    <button id="enable-disable">Set</button>
+    <script>
+        const $ = (selector) => document.querySelector(selector)
+        const $a = (selector) => Array.from(document.querySelectorAll(selector));
+        const $make = (elem) => document.createElement(elem)
+        const strRepeat = (str, times) => new Array(times).fill(str).join("");
+        const state = {
+            width: 8,
+            height:8,
+            tileArr:new Array(64).fill('A') // force this to always be valid
+        }
+        const updateDivContainer = ({width, height, tileArr}) => {
+            const container = $("#div-container");
+            container.innerHTML = "";
+            for(let y = 0; y < height; y++){
+                const row = $make("div");
+                row.classList.add("row");
+                for(let x = 0; x < width; x++){
+                    const cell = $make("div");
+                    cell.classList.add("cell");
+                    cell.textContent = tileArr[y * width + x]
+                    cell.contentEditable='true'
+                    row.appendChild(cell);
+                }
+                container.appendChild(row);
+            }
+            
+            
+        }
+        let mouseDown = 0;
+        document.body.onmousedown = function() { 
+            ++mouseDown;
+        }
+        document.body.onmouseup = function() {
+            --mouseDown;
+        }
+        let enabled = true;
+        const enableEditing = () => {
+            $a(".cell").forEach(cell => {
+                cell.contentEditable='true';
+                cell.style.userSelect = 'auto';
+            })
+        };
+        const disableEditing = () => {
+            $a(".cell").forEach(cell => {
+                console.log(cell);
+                cell.contentEditable='false';
+                cell.style.userSelect = 'none';
+            })
+        };
+        function updateTextBoxFromDivs(){
+            const rowStrs = [];
+            const rows = $a(".row").map(row => {
+                console.log(row);
+                rowStrs.push(Array.from(row.querySelectorAll(".cell")).map(c => {
+                    console.log(c);
+                    return c.textContent || c.value}).join("")
+                );
+            })
+            $("#text-setter").value= rowStrs.join("\n");
+        }
+        const container = $("#div-container");
+        container.addEventListener("input", function(event){
+            if(!event.target.matches(".cell")){
+                return;
+            }
+            event.target.textContent = event.data;
+            updateTextBoxFromDivs();
+        })
+        container.addEventListener("mousedown", function(event){
+            if(!event.target.matches(".cell")){
+                return;
+            }
+            if(!enabled){
+                console.log(event.target);
+                event.target.textContent = $("#letter").value;
+                updateTextBoxFromDivs();
+            }
+        })
+        container.addEventListener("mouseover", function(event){
+            if(!event.target.matches(".cell")){
+                return;
+            }
+            if(mouseDown > 0 && !enabled){
+                console.log(event.target);
+                event.target.textContent = $("#letter").value;
+                updateTextBoxFromDivs();
+            }
+        })
+        updateDivContainer(state);
+        
+        const createTextFromState = ({width, tileArr}) => {
+            let mapText = "";
+            tileArr.forEach((tile, index) => {
+                if(index !== 0 && index % width === 0){
+                    mapText += "\n"
+                }
+                mapText += tile;
+            })
+            return mapText
+        }
+
+        $("#text-setter").value = createTextFromState(state);
+        $("#enable-disable").addEventListener("click", function(){
+            if(!enabled){
+                enableEditing();
+                enabled = true;
+                $("#enable-disable").textContent = "Set";
+            } else {
+                disableEditing();
+                enabled = false;
+                $("#enable-disable").textContent = "Paint";
+            }
+            
+        })
+        const drawLetterSquare = (ctx, letter, x,y,size) => {
+            ctx.strokeRect(x, y, size, size);
+            ctx.font = '16 monospace';
+            ctx.textAlign = "center" 
+            ctx.textBaseline = "middle"
+            ctx.strokeText(letter,x + size/2, y + size/2, 16)
+        }
+        // const canvas = $("canvas");
+        // const ctx = canvas.getContext("2d");
+
+        // function renderTextToCanvas(text, size){
+        //     const rows = text.split("\n");
+        //     for(let y = 0; y < rows.length; y++){
+        //         const row = rows[y]
+        //         for(let x = 0; x < row.length; x++){
+        //             const letter = row[x];
+        //             drawLetterSquare(ctx, letter, x * size, y * size, size)
+        //         }
+        //     }
+        // }
+        // function getRelativeMouse(e){
+        //     var rect = e.target.getBoundingClientRect();
+        //     var x = e.clientX - rect.left; //x position within the element.
+        //     var y = e.clientY - rect.top;  //y position within the element.
+        //     return {x, y}
+        // }
+
+        // function floorInterval(number, size){
+        //     return Math.floor(number/size) * size;
+        // }
+        // renderTextToCanvas(startingMap, 16)
+        // let mouseDown = 0;
+        // document.body.onmousedown = function() { 
+        // ++mouseDown;
+        // }
+        // document.body.onmouseup = function() {
+        // --mouseDown;
+        // }
+        // canvas.onmousemove = (event) => {
+        //     const mouse = getRelativeMouse(event);
+        //     const x = floorInterval(mouse.x, 16);
+        //     const y = floorInterval(mouse.y, 16);
+        //     console.log(x,y);
+        //     if(mouseDown){
+        //         console.log("dragging");
+        //     }
+        // }
+
+
+
+
+    </script>
+</body>
+</html>
