@@ -60,8 +60,89 @@
         <button id="load-pallete">load Pallete</button>
         <div id="pallete">
         </div>
+        <h2>Maps</h2>
+        <label>Map Name</label><input id="map-name"><button id="save-map">Save Map</button>
+        <div id="available-maps">
+
+        </div>
     </div>
     <script>
+        const levels = localStorage.getItem("maps") ? JSON.parse(localStorage.getItem("maps")) :[];
+        function renderLevelButtons(){
+            const am = $("#available-maps");
+            am.innerHTML = "";
+            levels.forEach(level => {
+                const btn = $make("button");
+                btn.classList.add("map");
+                btn.setAttribute("data-level", level.name);
+                btn.textContent = level.name;
+                am.appendChild(btn);
+            })
+        }
+        renderLevelButtons();
+        $("#available-maps").addEventListener("click", function(event){
+            if(event.target.matches("button.map")){
+                if(!validateInput()) {
+                    alert("Something is wrong with your map, be sure to check the whitespace");
+                    return;
+                }
+                const mapName = event.target.getAttribute("data-level");
+                const level = levels.find(level => level.name === mapName)
+                $("#text-setter").value = level.data;
+                updateDivContainerFromTextArea();
+            }
+        })
+        $("#save-map").addEventListener("click", function(event){
+            const mapName = $("#map-name").value;
+            const levelIndex = levels.findIndex(level => level.name === mapName)
+            const levelData = $("#text-setter").value;
+            if(levelIndex > -1){
+                levels[levelIndex].map = levelData;
+            } else {
+                levels.push({name: mapName, data:levelData})
+            }
+            localStorage.setItem("maps", JSON.stringify(levels))
+            renderLevelButtons();
+        })
+        $("#text-setter").addEventListener("change", function(){
+            updateDivContainerFromTextArea();
+        })
+
+        function validateInput(){
+            const _data = $("#text-setter").value;
+            const rowSize = _data.split("\n").pop().length;
+            const data = _data.replace(/\n/gi, "");
+            const columnSize = data.length / rowSize;
+            return Math.floor(columnSize) !== columnSize;
+        }
+        // Todo: convert to use validateInput
+        function updateDivContainerFromTextArea(){
+            //const {width, height, tileArr}
+            const _data = $("#text-setter").value;
+            const rowSize = _data.split("\n").pop().length;
+            const data = _data.replace(/\n/gi, "");
+            const columnSize = data.length / rowSize;
+            if(Math.floor(columnSize) !== columnSize){ console.log("Somethings wrong with the map"); return;}
+            const container = $("#div-container");
+            const width = rowSize;
+            const height = columnSize;
+            const tileArr = data.replace(/\\n/gi, "");
+            container.innerHTML = "";
+            for(let y = 0; y < height; y++){
+                const row = $make("div");
+                row.classList.add("row");
+                for(let x = 0; x < width; x++){
+                    const cell = $make("div");
+                    cell.classList.add("cell");
+                    cell.textContent = tileArr[y * width + x]
+                    cell.contentEditable= enabled ? 'true' : false;
+                    row.appendChild(cell);
+                }
+                container.appendChild(row);
+            }
+            updateColor();
+        }
+        
         const pallete = localStorage.getItem("pallete") ? JSON.parse(localStorage.getItem("pallete")) : {
             A:"#4BACDC", // Water
             B:"#67AD83", // Grass
@@ -101,7 +182,7 @@
         }
         function $(selector){ return document.querySelector(selector)}
         function $a(selector){ return Array.from(document.querySelectorAll(selector)); }
-        const $make = (elem) => document.createElement(elem)
+        function $make(elem){ return document.createElement(elem);} 
         const strRepeat = (str, times) => new Array(times).fill(str).join("");
         const state = {
             width: 8,
@@ -123,8 +204,6 @@
                 }
                 container.appendChild(row);
             }
-            
-            
         }
         let mouseDown = 0;
         document.body.addEventListener("mousedown", function() { 
